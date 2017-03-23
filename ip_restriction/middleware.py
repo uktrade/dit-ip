@@ -23,6 +23,17 @@ RESTRICT_IPS = getattr(settings, 'RESTRICT_IPS', None)
 if RESTRICT_IPS is None:
     RESTRICT_IPS = os.environ.get('RESTRICT_IPS', '').lower() == 'true' or os.environ.get('RESTRICT_IPS') == '1'
 
+ALLOW_ADMIN = getattr(settings, 'ALLOW_ADMIN', None)
+
+if ALLOW_ADMIN is None:
+    ALLOW_ADMIN = os.environ.get('ALLOW_ADMIN', '').lower() == 'true' or os.environ.get('ALLOW_ADMIN') == '1'
+
+ALLOW_AUTHENTICATED = getattr(settings, 'ALLOW_AUTHENTICATED', None)
+
+if ALLOW_AUTHENTICATED is None:
+    allow_auth = os.environ.get('ALLOW_AUTHENTICATED', '')
+    ALLOW_AUTHENTICATED = allow_auth.lower() == 'true' or allow_auth == '1'
+
 
 class IpWhitelister():
     """
@@ -54,7 +65,11 @@ class IpWhitelister():
             authenticated = request.user.is_authenticated()
 
             # Allow access to the admin
-            if app_name == 'admin' or authenticated:
+            if app_name == 'admin' and ALLOW_ADMIN:
+                return None
+
+            # Allow access to authenticated users
+            if authenticated and ALLOW_AUTHENTICATED:
                 return None
 
             block_request = True
