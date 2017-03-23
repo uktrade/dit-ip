@@ -2,7 +2,7 @@
 Django IP Restriction
 =====================
 
-Department of International Trade Django IP Whitelist.  A Django middleware to restrict incoming IPs to a Django project to a list of allowed IPs or IP ranges, or to authenticated users.  Access to the admin login screen are not restricted, so that users can then authenticate, and bypass the IP restriction for the rest of the site.
+Department of International Trade Django IP Whitelist.  A Django middleware to restrict incoming IPs to a Django project to a list of allowed IPs or IP ranges.  Access to the admin login screen, and access to authenticated users are configurable, so it can be set such that users can authenticate, and bypass the IP restriction for the site.
 
 Requirements
 ------------
