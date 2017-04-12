@@ -19,11 +19,20 @@ Quick start
 
     $ pip install django-ip-restriction
 
-#. Add the middleware to your MIDDLEWARE_CLASSES setting::
+#. Add the middleware to your settings (Note: the minimum necessary other middleware components are Django's `SessionMiddleware` and `AuthenticationMiddleware`, these are added by default to your settings)::
 
+    # Django 1.9
     MIDDLEWARE_CLASSES = [
         ...
         'ip_restriction.IpWhitelister',
+        ...
+    ]
+
+    # Django 1.10+
+    MIDDLEWARE = [
+        ...
+        'ip_restriction.IpWhitelister',
+        ...
     ]
 
 
