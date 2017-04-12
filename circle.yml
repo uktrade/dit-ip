@@ -1,0 +1,11 @@
+dependencies:
+    cache_directories:
+        - ".tox"
+    override:
+        - "tox --notest"
+    pre:
+        - pyenv local 3.4.3 3.5.3 3.6.1
+
+test:
+    override:
+        - tox
