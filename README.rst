@@ -7,7 +7,7 @@ Department of International Trade Django IP Whitelist.  A Django middleware to r
 Requirements
 ------------
 
-* Python >= 3.0
+* Python >= 3.3
 * Django >= 1.9
 
 
