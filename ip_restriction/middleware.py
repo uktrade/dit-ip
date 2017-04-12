@@ -1,46 +1,56 @@
-import ipaddress
 import os
+import ipaddress
+import logging
 
-from django.conf import settings
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import resolve
-
-
-ALLOWED_IPS = getattr(settings, 'ALLOWED_IPS', None)
-
-if ALLOWED_IPS is None:
-    ips = os.environ.get('ALLOWED_IPS', '')
-    ALLOWED_IPS = [ip.strip() for ip in ips.split(',') if ip != '']
-
-ALLOWED_IP_RANGES = getattr(settings, 'ALLOWED_IP_RANGES', None)
-
-if ALLOWED_IP_RANGES is None:
-    ranges = os.environ.get('ALLOWED_IP_RANGES', '')
-    ALLOWED_IP_RANGES = [rnge.strip() for rnge in ranges.split(',') if rnge != '']
-
-RESTRICT_IPS = getattr(settings, 'RESTRICT_IPS', None)
-
-if RESTRICT_IPS is None:
-    RESTRICT_IPS = os.environ.get('RESTRICT_IPS', '').lower() == 'true' or os.environ.get('RESTRICT_IPS') == '1'
-
-ALLOW_ADMIN = getattr(settings, 'ALLOW_ADMIN', None)
-
-if ALLOW_ADMIN is None:
-    ALLOW_ADMIN = os.environ.get('ALLOW_ADMIN', '').lower() == 'true' or os.environ.get('ALLOW_ADMIN') == '1'
-
-ALLOW_AUTHENTICATED = getattr(settings, 'ALLOW_AUTHENTICATED', None)
-
-if ALLOW_AUTHENTICATED is None:
-    allow_auth = os.environ.get('ALLOW_AUTHENTICATED', '')
-    ALLOW_AUTHENTICATED = allow_auth.lower() == 'true' or allow_auth == '1'
+from django.conf import settings
 
 
 class IpWhitelister():
     """
     Simple middlware to allow IP addresses via settings variables ALLOWED_IPS, ALLOWED_IP_RANGES.
 
-    The settings must have RESTRICT_IPS = True for IP checking to perform, else the middlware does nothing.
+    Made to be compatible with Django 1.9 and also 1.10+
     """
+
+    logger = logging.getLogger(__name__)
+
+    def __init__(self, get_response=None):
+        self.get_response = get_response
+        self.RESTRICT_IPS = self._get_config_var('RESTRICT_IPS', bool)
+        self.ALLOWED_IPS = self._get_config_var('ALLOWED_IPS', list)
+        self.ALLOWED_IP_RANGES = self._get_config_var('ALLOWED_IP_RANGES', list)
+        self.ALLOW_ADMIN = self._get_config_var('ALLOW_ADMIN', bool)
+        self.ALLOW_AUTHENTICATED = self._get_config_var('ALLOW_AUTHENTICATED', bool)
+
+    def __call__(self, request):
+        response = self.process_request(request)
+        
+        if not response and self.get_response:
+            response = self.get_response(request)
+        
+        return response
+
+    def _get_config_var(self, name, vartype):
+        """
+        Get the whitelist config variable from the Django settings, or from the environment.
+        Environment variables take preference over Django settings
+        """
+
+        env_val = os.environ.get(name)
+        setting_val = getattr(settings, name, None)
+
+        if vartype == bool:
+            if env_val is None:
+                return setting_val is True
+            else:
+                return env_val.lower() == 'true' or env_val == '1'
+        else:
+            if env_val is None:
+                return setting_val if setting_val is not None else []
+            else:
+                return [val.strip() for val in env_val.split(',') if val != '']
 
     def get_client_ip(self, request):
         """
@@ -59,17 +69,17 @@ class IpWhitelister():
         return ip
 
     def process_request(self, request):
-        if RESTRICT_IPS:
+        if self.RESTRICT_IPS:
             # Get the app name
             app_name = resolve(request.path).app_name
             authenticated = request.user.is_authenticated()
 
             # Allow access to the admin
-            if app_name == 'admin' and ALLOW_ADMIN:
+            if app_name == 'admin' and self.ALLOW_ADMIN:
                 return None
 
             # Allow access to authenticated users
-            if authenticated and ALLOW_AUTHENTICATED:
+            if authenticated and self.ALLOW_AUTHENTICATED:
                 return None
 
             block_request = True
@@ -78,12 +88,18 @@ class IpWhitelister():
             request_ip = ipaddress.ip_address(request_ip_str)
 
             # If it's in the ALLOWED_IPS, don't block it
-            if request_ip_str in ALLOWED_IPS:
+            if request_ip_str in self.ALLOWED_IPS:
                 block_request = False
 
             # If it's within a ALLOWED_IP_RANGE, don't block it
-            for allowed_range in ALLOWED_IP_RANGES:
-                if request_ip in ipaddress.ip_network(allowed_range):
+            for allowed_range in self.ALLOWED_IP_RANGES:
+                try:
+                    network = ipaddress.ip_network(allowed_range)
+                except ValueError as e:
+                    self.logger.warning('Failed to parse specific network address: {}'.format("".join(e.args)))
+                    continue
+
+                if request_ip in network:
                     block_request = False
                     break
 
