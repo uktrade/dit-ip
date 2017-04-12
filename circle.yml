@@ -4,6 +4,7 @@ dependencies:
     override:
         - "tox --notest"
     pre:
+        - pip install tox
         - pyenv local 3.4.3 3.5.3 3.6.1
 
 test:
