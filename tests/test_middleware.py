@@ -42,6 +42,17 @@ class TestIPRestriction(TestCase):
         resp = client.get(url)
         return resp.status_code
 
+    def _get_response_code_for_header(self, ips, url=example_url, login=False):
+        # Helper function to set an originating IP address to the given IP, and request
+        # our one example view, returning the response's status code
+        client = Client(HTTP_X_FORWARDED_FOR=ips)
+
+        if login:
+            client.login(username=self.user.username, password=self.password)
+
+        resp = client.get(url)
+        return resp.status_code
+
     def test_default_no_ip_restriction(self):
         # By default, without specifying in settings or environment variables
         # requests should be allowed and not interefed with by the middleware
@@ -78,6 +89,18 @@ class TestIPRestriction(TestCase):
         code = self._get_response_code_for_ip('192.168.0.2')
         self.assertEqual(code, 403)
 
+        # Check multiple IPs in the header, first 2 bad IPs
+        code = self._get_response_code_for_header('127.0.0.2, 192.168.0.2')
+        self.assertEqual(code, 403)
+
+        # Check a blocked one, and an allowed one
+        code = self._get_response_code_for_header('127.0.0.2, 192.168.0.1')
+        self.assertEqual(code, 200)
+
+        # Check an allowed one, and a blocked one
+        code = self._get_response_code_for_header('127.0.0.1, 192.168.0.2')
+        self.assertEqual(code, 200)
+
     @override_settings(RESTRICT_IPS=True, ALLOWED_IP_RANGES=['192.168.0.0/31'])
     def test_allowed_ip_ranges(self):
         # Specift a very limited IP range, and check that the 2 IP within it receive a 200
@@ -91,6 +114,17 @@ class TestIPRestriction(TestCase):
         code = self._get_response_code_for_ip('192.168.0.2')
         self.assertEqual(code, 403)
 
+        # Check multiple IPs in the header, first 2 bad IPs
+        code = self._get_response_code_for_header('127.0.0.2, 192.168.0.2')
+        self.assertEqual(code, 403)
+
+        # Check a blocked one, and an allowed one
+        code = self._get_response_code_for_header('127.0.0.2, 192.168.0.1')
+        self.assertEqual(code, 200)
+
+        # Check an allowed one, and a blocked one
+        code = self._get_response_code_for_header('192.168.0.1, 127.0.0.1')
+        self.assertEqual(code, 200)
 
     @patch('ip_restriction.IpWhitelister.logger')
     @override_settings(RESTRICT_IPS=True, ALLOWED_IP_RANGES=['127.0.0.1/30'])
