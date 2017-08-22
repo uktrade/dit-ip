@@ -52,7 +52,7 @@ class IpWhitelister():
             else:
                 return [val.strip() for val in env_val.split(',') if val != '']
 
-    def get_client_ip(self, request):
+    def get_client_ip_list(self, request):
         """
         Get the incoming request's originating IP, looks first for X_FORWARDED_FOR header, which is provided by some
         PaaS platforms, since the Django REMOTE_ADDR is affected by internal routing.  Fallback to the REMOTE_ADDR if
@@ -62,11 +62,44 @@ class IpWhitelister():
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
 
         if x_forwarded_for:
-            ip = x_forwarded_for.split(',')[-1].strip()
+            ips = x_forwarded_for.split(',')
+            ips = map(str.strip, ips)
         else:
-            ip = request.META.get('REMOTE_ADDR')
+            ips = [request.META.get('REMOTE_ADDR')]
 
-        return ip
+        return ips
+
+    def is_blocked_ip(self, request):
+        # Default blocked
+        block_request = True
+
+        # Get the incoming IP address
+        request_ips = self.get_client_ip_list(request)
+
+        for request_ip_str in request_ips:
+            request_ip = ipaddress.ip_address(request_ip_str)
+
+            # If it's in the ALLOWED_IPS, don't block it
+            if request_ip_str in self.ALLOWED_IPS:
+                block_request = False
+                break
+
+            # If it's within a ALLOWED_IP_RANGE, don't block it
+            for allowed_range in self.ALLOWED_IP_RANGES:
+                try:
+                    network = ipaddress.ip_network(allowed_range)
+                except ValueError as e:
+                    self.logger.warning('Failed to parse specific network address: {}'.format("".join(e.args)))
+                    continue
+
+                if request_ip in network:
+                    block_request = False
+                    break
+
+            if block_request is False:
+                break                
+
+        return block_request
 
     def process_request(self, request):
         if self.RESTRICT_IPS:
@@ -82,26 +115,7 @@ class IpWhitelister():
             if authenticated and self.ALLOW_AUTHENTICATED:
                 return None
 
-            block_request = True
-            # Get the incoming IP address
-            request_ip_str = self.get_client_ip(request)
-            request_ip = ipaddress.ip_address(request_ip_str)
-
-            # If it's in the ALLOWED_IPS, don't block it
-            if request_ip_str in self.ALLOWED_IPS:
-                block_request = False
-
-            # If it's within a ALLOWED_IP_RANGE, don't block it
-            for allowed_range in self.ALLOWED_IP_RANGES:
-                try:
-                    network = ipaddress.ip_network(allowed_range)
-                except ValueError as e:
-                    self.logger.warning('Failed to parse specific network address: {}'.format("".join(e.args)))
-                    continue
-
-                if request_ip in network:
-                    block_request = False
-                    break
+            block_request = self.is_blocked_ip(request)
 
             # Otherwise, 403 Forbidden
             if block_request:
