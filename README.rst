@@ -67,6 +67,11 @@ Regardless of the IP addresses/rages that are in the whitelist, access to the ad
 Setting both ``ALLOW_ADMIN`` *and* ``ALLOW_AUTHENTICATED`` to true is recommended, and will allow any user that can log in, to first access only the admin interface in order to authenitcate, and from then have access to all URLs for the project.
 
 
+Restict Admin views only
+------------------------
+
+To restrict admin views only set the variables ``RESTRICT_ADMIN_BY_IPS``, ``ALLOWED_ADMIN_IPS`` and ``ALLOWED_ADMIN_IP_RANGES``
+
 ============
 Contributing
 ============
