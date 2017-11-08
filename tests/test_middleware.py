@@ -163,3 +163,26 @@ class TestIPRestriction(TestCase):
 
         code = self._get_response_code_for_ip('127.0.0.1', example_url, login=True)
         self.assertEqual(code, 200)
+
+    @override_environment(
+        RESTRICT_IPS=False,
+        RESTRICT_ADMIN_BY_IPS=True,
+        ALLOWED_ADMIN_IPS=['127.0.0.1', '192.168.0.1'])
+    def test_allow_all_views_restrict_admin_views(self):
+        resp = self.client.get(example_url)
+        self.assertEqual(resp.status_code, 200)
+
+        admin_url = reverse_lazy('admin:login')
+        # get admin view from allowed IP
+        response_code = self._get_response_code_for_ip(
+            '127.0.0.1',
+            url=admin_url
+        )
+        self.assertEqual(response_code, 200)
+
+        # get admin view from blocked IP
+        response_code = self._get_response_code_for_ip(
+            '1.1.1.1',
+            url=admin_url
+        )
+        self.assertEqual(response_code, 404)
