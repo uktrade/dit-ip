@@ -6,7 +6,7 @@ dependencies:
     pre:
         - pip install tox
         - pyenv versions
-        - pyenv local 3.4.3 3.5.0
+        - pyenv local 3.4.3 3.5.1
 
 test:
     override:

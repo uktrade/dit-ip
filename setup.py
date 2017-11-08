@@ -9,15 +9,15 @@ os.chdir(os.path.normpath(os.path.join(os.path.abspath(__file__), os.pardir)))
 
 setup(
     name='django-ip-restriction',
-    version='1.0.0',
+    version='1.1.0',
     packages=find_packages(),
     include_package_data=True,
     license='MIT License',
     description='A Django middleware to restrict incoming IPs to a Django project.',
     long_description=README,
     url='https://github.com/uktrade/dit-ip',
-    author='David Downes',
-    author_email='david@downes.co.uk',
+    author='Department for International Trade - Export team',
+    author_email='tools@digital.trade.gov.uk',
     test_suite="run_tests.run",
     classifiers=[
         'Environment :: Web Environment',
