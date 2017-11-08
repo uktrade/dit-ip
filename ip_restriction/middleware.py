@@ -5,6 +5,7 @@ import logging
 from django.core.exceptions import PermissionDenied
 from django.core.urlresolvers import resolve
 from django.conf import settings
+from django.http import Http404
 
 
 class IpWhitelister():
@@ -23,6 +24,9 @@ class IpWhitelister():
         self.ALLOWED_IP_RANGES = self._get_config_var('ALLOWED_IP_RANGES', list)
         self.ALLOW_ADMIN = self._get_config_var('ALLOW_ADMIN', bool)
         self.ALLOW_AUTHENTICATED = self._get_config_var('ALLOW_AUTHENTICATED', bool)
+        self.RESTRICT_ADMIN_BY_IPS = self._get_config_var('RESTRICT_ADMIN_BY_IPS', bool)
+        self.ALLOWED_ADMIN_IPS = self._get_config_var('ALLOWED_ADMIN_IPS', list)
+        self.ALLOWED_ADMIN_IP_RANGES = self._get_config_var('ALLOWED_ADMIN_IP_RANGES', list)
 
     def __call__(self, request):
         response = self.process_request(request)
@@ -69,7 +73,7 @@ class IpWhitelister():
 
         return ips
 
-    def is_blocked_ip(self, request):
+    def is_blocked_ip(self, request, allowed_ips, allowed_ip_ranges):
         # Default blocked
         block_request = True
 
@@ -80,12 +84,12 @@ class IpWhitelister():
             request_ip = ipaddress.ip_address(request_ip_str)
 
             # If it's in the ALLOWED_IPS, don't block it
-            if request_ip_str in self.ALLOWED_IPS:
+            if request_ip_str in allowed_ips:
                 block_request = False
                 break
 
             # If it's within a ALLOWED_IP_RANGE, don't block it
-            for allowed_range in self.ALLOWED_IP_RANGES:
+            for allowed_range in allowed_ip_ranges:
                 try:
                     network = ipaddress.ip_network(allowed_range)
                 except ValueError as e:
@@ -102,9 +106,10 @@ class IpWhitelister():
         return block_request
 
     def process_request(self, request):
+        # Get the app name
+        app_name = resolve(request.path).app_name
         if self.RESTRICT_IPS:
-            # Get the app name
-            app_name = resolve(request.path).app_name
+
             authenticated = request.user.is_authenticated()
 
             # Allow access to the admin
@@ -115,10 +120,24 @@ class IpWhitelister():
             if authenticated and self.ALLOW_AUTHENTICATED:
                 return None
 
-            block_request = self.is_blocked_ip(request)
+            block_request = self.is_blocked_ip(
+                request,
+                allowed_ips=self.ALLOWED_IPS,
+                allowed_ip_ranges=self.ALLOWED_IP_RANGES
+            )
 
             # Otherwise, 403 Forbidden
             if block_request:
                 raise PermissionDenied()
+
+        if self.RESTRICT_ADMIN_BY_IPS and app_name == 'admin':
+            block_request = self.is_blocked_ip(
+                request,
+                allowed_ips=self.ALLOWED_ADMIN_IPS,
+                allowed_ip_ranges=self.ALLOWED_ADMIN_IP_RANGES
+            )
+            # raise 404
+            if block_request:
+                raise Http404()
 
         return None
