@@ -16,8 +16,8 @@ setup(
     description='A Django middleware to restrict incoming IPs to a Django project.',
     long_description=README,
     url='https://github.com/uktrade/dit-ip',
-    author='David Downes',
-    author_email='david@downes.co.uk',
+    author='Department for International Trade - Export team',
+    author_email='tools@digital.trade.gov.uk',
     test_suite="run_tests.run",
     classifiers=[
         'Environment :: Web Environment',
