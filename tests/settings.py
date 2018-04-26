@@ -48,3 +48,5 @@ if version_components[0] == 1 and version_components[1] == 9:
     MIDDLEWARE_CLASSES = _middleware
 elif version_components[0] == 1 and version_components[1] >= 10:
     MIDDLEWARE = _middleware
+elif version_components[0] == 2:
+    MIDDLEWARE = _middleware
