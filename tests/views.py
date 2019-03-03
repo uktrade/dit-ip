@@ -1,5 +1,8 @@
 from django.views.generic import View
-from django.core.urlresolvers import reverse_lazy
+try:
+    from django.core.urlresolvers import reverse_lazy
+except ImportError:
+    from django.urls import reverse_lazy
 from django.http import HttpResponse
 
 

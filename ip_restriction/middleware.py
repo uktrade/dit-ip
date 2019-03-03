@@ -3,9 +3,13 @@ import ipaddress
 import logging
 
 from django.core.exceptions import PermissionDenied
-from django.core.urlresolvers import resolve
+try:
+    from django.core.urlresolvers import resolve
+except ImportError:
+    from django.urls import resolve
 from django.conf import settings
 from django.http import Http404
+from django import VERSION
 
 
 class IpWhitelister():
@@ -110,7 +114,10 @@ class IpWhitelister():
         app_name = resolve(request.path).app_name
         if self.RESTRICT_IPS:
 
-            authenticated = request.user.is_authenticated()
+            if VERSION >= (1, 10):
+                authenticated = request.user.is_authenticated
+            else:
+                authenticated = request.user.is_authenticated()
 
             # Allow access to the admin
             if app_name == 'admin' and self.ALLOW_ADMIN:

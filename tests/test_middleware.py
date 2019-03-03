@@ -2,7 +2,10 @@ from unittest.mock import patch
 
 from django.test import TestCase, override_settings
 from django.test.client import Client
-from django.core.urlresolvers import reverse_lazy
+try:
+    from django.core.urlresolvers import reverse_lazy
+except ImportError:
+    from django.urls import reverse_lazy
 from django.contrib.auth.models import User
 
 from .decorators import override_environment
