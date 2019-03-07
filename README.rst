@@ -42,21 +42,21 @@ Configuration
 
 Turning on or off, and configuring the IP whitelist is done either via variables in your Django settings, or via environment variables.  Values in Django settings take preference over values in the environment.
 
-Turning on/off the middleware is done via ``RESTRICT_IPS``, and the default value is False.  Either set this variable to True in Django settings, or set a truthy value (e.g. 'true', '1') in your environment.  
+Turning on/off the middleware is done via ``RESTRICT_IPS``, and the default value is False.  Either set this variable to True in Django settings, or set a truthy value (e.g. 'true', '1') in your environment.
 
 Individual IPs can be whitelisted via ``ALLOWED_IPS``, which is either a list of IP strings in Django settings, or a comma-separated list of IPs in the environment, e.g the following 2 are equivalent::
 
     # in bash (spaces are disregarded, trailing commas are OK)
     export ALLOWED_IPS='192.168.0.1, 192.168.0.2,192.168.0.3,'
-    
+
     # in settings.py (will override the above environment variable)
     ALLOWED_IPS = ['192.168.0.1', '192.168.0.2', '192.168.0.3']
 
 IP ranges can be whitelisted via ``ALLOWED_IP_RANGES``, which is either a list of IP range strings (CIDR notation) in Django settings, or a comma-separated list of IP ranges in the environment, e.g.::
-    
+
     # in bash
     export ALLOWED_IP_RANGES='192.168.0.0/8, 127.0.0.0/2'
-    
+
     # in settings.py
     ALLOWED_IPS = ['192.168.0.0/8', '127.0.0.0/2']
 
@@ -66,6 +66,19 @@ Regardless of the IP addresses/rages that are in the whitelist, access to the ad
 
 Setting both ``ALLOW_ADMIN`` *and* ``ALLOW_AUTHENTICATED`` to true is recommended, and will allow any user that can log in, to first access only the admin interface in order to authenitcate, and from then have access to all URLs for the project.
 
+The following two settings relate to CloudFront and the way forwarded IPs are provided as well as
+the additional security of the secret token.
+
+Setting ``SECRET_HEADER_NAME`` and ``SECRET_HEADER_VALUE`` will cause requests to be rejected
+if the value of a header specified in SECRET_HEADER_NAME does not match the SECRET_HEADER_VALUE provided.
+
+``REAL_IP_POSITION`` can be provided to support scenarios using CloudFront where the real IP is positioned
+in a list of IPs provided, and is zero based and counted from the end. For example, with a forwarded ip list of:
+
+`x_forwarded_for:"193.240.177.2, 193.240.177.99, 216.137.62.70, 127.0.0.1"`
+
+The real IP is the 3rd from the left, and the 4th one is assumed to be a spoofing attempt. The value is therefore
+set to 2.
 
 Restict Admin views only
 ------------------------
@@ -99,7 +112,7 @@ TODO
 ====
 
 * Allow the IP restriction to work in a blacklisting mode, rather than just a whitelisting mode
-* Get continuous integration to run on multiple python versions from 3.0+ 
+* Get continuous integration to run on multiple python versions from 3.0+
     - Currently only running on 3.5.0
     - Utilise parallelism
 * Run tests on multiple Django versions

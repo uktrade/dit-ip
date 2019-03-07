@@ -31,13 +31,17 @@ class IpWhitelister():
         self.RESTRICT_ADMIN_BY_IPS = self._get_config_var('RESTRICT_ADMIN_BY_IPS', bool)
         self.ALLOWED_ADMIN_IPS = self._get_config_var('ALLOWED_ADMIN_IPS', list)
         self.ALLOWED_ADMIN_IP_RANGES = self._get_config_var('ALLOWED_ADMIN_IP_RANGES', list)
+        # Cloudfront settings
+        self.SECRET_HEADER_NAME = self._get_config_var('SECRET_HEADER_NAME', str)
+        self.SECRET_HEADER_VALUE = self._get_config_var('SECRET_HEADER_VALUE', str)
+        self.REAL_IP_POSITION = self._get_config_var('REAL_IP_POSITION', int)
 
     def __call__(self, request):
         response = self.process_request(request)
-        
+
         if not response and self.get_response:
             response = self.get_response(request)
-        
+
         return response
 
     def _get_config_var(self, name, vartype):
@@ -54,6 +58,8 @@ class IpWhitelister():
                 return setting_val is True
             else:
                 return env_val.lower() == 'true' or env_val == '1'
+        elif vartype in (int, str):
+            return vartype(env_val) if env_val is not None else None
         else:
             if env_val is None:
                 return setting_val if setting_val is not None else []
@@ -68,10 +74,9 @@ class IpWhitelister():
         """
 
         x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-
         if x_forwarded_for:
             ips = x_forwarded_for.split(',')
-            ips = map(str.strip, ips)
+            ips = list(map(str.strip, ips))
         else:
             ips = [request.META.get('REMOTE_ADDR')]
 
@@ -80,9 +85,19 @@ class IpWhitelister():
     def is_blocked_ip(self, request, allowed_ips, allowed_ip_ranges):
         # Default blocked
         block_request = True
+        cloudfront = False
+        if self.SECRET_HEADER_NAME and self.SECRET_HEADER_VALUE:
+            if request.META.get(self.SECRET_HEADER_NAME) != self.SECRET_HEADER_VALUE:
+                return block_request
+            else:
+                cloudfront = True
 
         # Get the incoming IP address
         request_ips = self.get_client_ip_list(request)
+
+        # Account for CloudFront forwarded IPs. Dilute the ip list only to the original ip
+        if cloudfront and self.REAL_IP_POSITION and len(request_ips) > self.REAL_IP_POSITION:
+            request_ips = [request_ips[-1 * self.REAL_IP_POSITION + 1]]
 
         for request_ip_str in request_ips:
             request_ip = ipaddress.ip_address(request_ip_str)
@@ -105,7 +120,7 @@ class IpWhitelister():
                     break
 
             if block_request is False:
-                break                
+                break
 
         return block_request
 

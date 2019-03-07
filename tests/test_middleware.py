@@ -56,6 +56,18 @@ class TestIPRestriction(TestCase):
         resp = client.get(url)
         return resp.status_code
 
+    def _get_response_code_for_cloudfront(self, ips, url=example_url, login=False):
+        # Helper function to set an originating IP address to the given IP, and request
+        # our one example view, returning the response's status code
+        client = Client(
+            HTTP_X_FORWARDED_FOR=ips,
+            HTTP_X_CDN_SECRET='secret')
+        if login:
+            client.login(username=self.user.username, password=self.password)
+
+        resp = client.get(url)
+        return resp.status_code
+
     def test_default_no_ip_restriction(self):
         # By default, without specifying in settings or environment variables
         # requests should be allowed and not interefed with by the middleware
@@ -189,3 +201,37 @@ class TestIPRestriction(TestCase):
             url=admin_url
         )
         self.assertEqual(response_code, 404)
+
+    @override_environment(
+        RESTRICT_IPS=True,
+        ALLOWED_IPS=['127.0.0.1', '192.168.0.1'],
+        SECRET_HEADER_NAME='HTTP_X_CDN_SECRET',
+        SECRET_HEADER_VALUE='secret',
+        REAL_IP_POSITION=2)
+    def test_cloudfront_allowed_ips(self):
+        print("CLOUDFRONT")
+        # Restict IPs to a list of known IPs and check that they are allowed, but other IPs
+        # are forbidden
+        code = self._get_response_code_for_cloudfront('199.168.0.1, 192.168.0.1, 216.137.62.70, 127.0.0.1')
+        self.assertEqual(code, 200)
+
+        code = self._get_response_code_for_cloudfront('192.168.0.1')
+        self.assertEqual(code, 200)
+
+        code = self._get_response_code_for_cloudfront('127.0.0.2')
+        self.assertEqual(code, 403)
+
+        code = self._get_response_code_for_cloudfront('192.168.0.2')
+        self.assertEqual(code, 403)
+
+        # Check multiple IPs in the header, first 2 bad IPs
+        # code = self._get_response_code_for_header('127.0.0.2, 192.168.0.2')
+        # self.assertEqual(code, 403)
+
+        # # Check a blocked one, and an allowed one
+        # code = self._get_response_code_for_header('127.0.0.2, 192.168.0.1')
+        # self.assertEqual(code, 200)
+
+        # # Check an allowed one, and a blocked one
+        # code = self._get_response_code_for_header('127.0.0.1, 192.168.0.2')
+        # self.assertEqual(code, 200)
